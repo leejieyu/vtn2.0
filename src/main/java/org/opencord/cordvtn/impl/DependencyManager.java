@@ -336,23 +336,28 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         Ip4Prefix subscriberIp = subscriber.subnet().getIp4Prefix();
         Ip4Prefix providerIp = provider.subnet().getIp4Prefix();
 
+        long vniSubs = subscriber.segmentId().id();
+        long vniProd = provider.segmentId().id();
+
         populateInPortRule(subscriberPorts, providerGroups, install);
         populateIndirectAccessRule(
+                vniSubs,
                 subscriberIp,
                 provider.serviceIp().getIp4Address(),
                 providerGroups,
                 install);
-        populateDirectAccessRule(subscriberIp, providerIp, install);
+        populateDirectAccessRule(vniSubs, subscriberIp, providerIp, install);
         if (type == BIDIRECTIONAL) {
-            populateDirectAccessRule(providerIp, subscriberIp, install);
+            populateDirectAccessRule(vniProd, providerIp, subscriberIp, install);
         }
     }
 
-    private void populateIndirectAccessRule(Ip4Prefix srcIp, Ip4Address serviceIp,
+    private void populateIndirectAccessRule(long vniSubs, Ip4Prefix srcIp, Ip4Address serviceIp,
                                             Map<DeviceId, GroupId> outGroups,
                                             boolean install) {
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
+                .matchMetadata(vniSubs)
                 .matchIPSrc(srcIp)
                 .matchIPDst(serviceIp.toIpPrefix())
                 .build();
@@ -376,9 +381,10 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         }
     }
 
-    private void populateDirectAccessRule(Ip4Prefix srcIp, Ip4Prefix dstIp, boolean install) {
+    private void populateDirectAccessRule(long vniSubs, Ip4Prefix srcIp, Ip4Prefix dstIp, boolean install) {
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
+                .matchMetadata(vniSubs)
                 .matchIPSrc(srcIp)
                 .matchIPDst(dstIp)
                 .build();

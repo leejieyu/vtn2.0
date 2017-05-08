@@ -92,20 +92,21 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
         long vni = vtnNet.segmentId().id();
         Ip4Prefix serviceIpRange = vtnNet.subnet().getIp4Prefix();
 
-        populateInPortRule(instance, install);
+        populateInPortRule(instance, install, vni);
         populateDstIpRule(instance, vni, install);
         populateTunnelInRule(instance, vni, install);
 
         if (install) {
-            populateDirectAccessRule(serviceIpRange, serviceIpRange, true);
+            populateDirectAccessRule(vni, serviceIpRange, serviceIpRange, true);
             populateServiceIsolationRule(serviceIpRange, true);
         } else if (getInstances(vtnNet.id()).isEmpty()) {
-            populateDirectAccessRule(serviceIpRange, serviceIpRange, false);
+            populateDirectAccessRule(vni, serviceIpRange, serviceIpRange, false);
             populateServiceIsolationRule(serviceIpRange, false);
         }
     }
 
-    private void populateInPortRule(Instance instance, boolean install) {
+    private void populateInPortRule(Instance instance, boolean install,long vni) {
+        long metadataMask = 0x7fffffffffffffffL;
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchInPort(instance.portNumber())
                 .matchEthType(Ethernet.TYPE_IPV4)
@@ -113,6 +114,7 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
                 .build();
 
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                .writeMetadata(vni, metadataMask)
                 .transition(CordVtnPipeline.TABLE_ACCESS)
                 .build();
 
@@ -133,6 +135,7 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
                 .build();
 
         treatment = DefaultTrafficTreatment.builder()
+                .writeMetadata(vni, metadataMask)
                 .transition(CordVtnPipeline.TABLE_IN_SERVICE)
                 .build();
 
@@ -147,6 +150,8 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
                 .build();
 
         pipeline.processFlowRule(install, flowRule);
+        log.info("InPortRule of Instance: " + instance +
+                         "have been installed, set metadata as the value of VNI: " + vni);
     }
 
     private void populateDstIpRule(Instance instance, long vni, boolean install) {
@@ -155,6 +160,7 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
                 .matchIPDst(instance.ipAddress().toIpPrefix())
+                .matchMetadata(vni)
                 .build();
 
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
@@ -229,9 +235,10 @@ public class DefaultInstanceHandler extends AbstractInstanceHandler implements I
         pipeline.processFlowRule(install, flowRule);
     }
 
-    private void populateDirectAccessRule(Ip4Prefix srcRange, Ip4Prefix dstRange, boolean install) {
+    private void populateDirectAccessRule(long vni, Ip4Prefix srcRange, Ip4Prefix dstRange, boolean install) {
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
+                .matchMetadata(vni)
                 .matchIPSrc(srcRange)
                 .matchIPDst(dstRange)
                 .build();
