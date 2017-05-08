@@ -346,9 +346,9 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
                 provider.serviceIp().getIp4Address(),
                 providerGroups,
                 install);
-        populateDirectAccessRule(vniSubs, subscriberIp, providerIp, install);
+        populateDirectAccessRule(vniSubs, vniProd, subscriberIp, providerIp, install);
         if (type == BIDIRECTIONAL) {
-            populateDirectAccessRule(vniProd, providerIp, subscriberIp, install);
+            populateDirectAccessRule(vniProd, vniSubs, providerIp, subscriberIp, install);
         }
     }
 
@@ -381,7 +381,8 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         }
     }
 
-    private void populateDirectAccessRule(long vniSubs, Ip4Prefix srcIp, Ip4Prefix dstIp, boolean install) {
+    private void populateDirectAccessRule(long vniSubs, long vniProd, Ip4Prefix srcIp, Ip4Prefix dstIp, boolean install) {
+        long metadataMask = 0x7fffffffffffffffL;
         TrafficSelector selector = DefaultTrafficSelector.builder()
                 .matchEthType(Ethernet.TYPE_IPV4)
                 .matchMetadata(vniSubs)
@@ -390,6 +391,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
                 .build();
 
         TrafficTreatment treatment = DefaultTrafficTreatment.builder()
+                .writeMetadata(vniProd, metadataMask)
                 .transition(TABLE_DST)
                 .build();
 
