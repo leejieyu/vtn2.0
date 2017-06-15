@@ -615,4 +615,5 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
                     .forEach(DependencyManager.this::dependencyCreated);
         }
     }
+
 }
