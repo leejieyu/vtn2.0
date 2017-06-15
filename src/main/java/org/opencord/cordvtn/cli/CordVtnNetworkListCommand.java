@@ -69,7 +69,8 @@ public class CordVtnNetworkListCommand extends AbstractShellCommand {
             net.providers().forEach(provider -> providers.add(
                     mapper().createObjectNode()
                             .put("networkId", provider.id().id())
-                            .put("type", provider.type().name())));
+                            .put("type", provider.type().name())
+                            .put("bandwidth", provider.bandwidth())));
 
             result.add(mapper().createObjectNode()
                                .put("id", net.id().id())

@@ -297,12 +297,12 @@ public final class VtnNetwork extends ServiceNetwork {
          * @param type       direct access type to the provider network
          * @return vtn network builder
          */
-        public Builder addProvider(NetworkId providerId, Dependency.Type type) {
+        public Builder addProvider(NetworkId providerId, Dependency.Type type, int bandwidth) {
             checkNotNull(providerId, "Provider network ID cannot be null");
             checkNotNull(type, "Provider network type cannot be null");
 
             Set<ProviderNetwork> updated = Sets.newHashSet(this.providers);
-            updated.add(ProviderNetwork.of(providerId, type));
+            updated.add(ProviderNetwork.of(providerId, type, bandwidth));
             this.providers = ImmutableSet.copyOf(updated);
             return this;
         }

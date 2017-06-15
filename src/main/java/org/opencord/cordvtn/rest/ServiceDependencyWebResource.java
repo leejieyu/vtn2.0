@@ -41,6 +41,7 @@ public class ServiceDependencyWebResource extends AbstractWebResource {
 
     private final DependencyService service = get(DependencyService.class);
     private static final String BIDIRECTION = "b";
+    private static int bandwidth = 10;
 
     /**
      * Creates service dependencies with unidirectional access between the services.
@@ -56,7 +57,8 @@ public class ServiceDependencyWebResource extends AbstractWebResource {
                                             @PathParam("providerServiceId") String pServiceId) {
         service.createDependency(NetworkId.of(tServiceId),
                                  NetworkId.of(pServiceId),
-                                 UNIDIRECTIONAL);
+                                 UNIDIRECTIONAL,
+                                 bandwidth);
         return Response.status(Response.Status.OK).build();
     }
 
@@ -77,7 +79,8 @@ public class ServiceDependencyWebResource extends AbstractWebResource {
         Type type = Objects.equals(direction, BIDIRECTION) ? BIDIRECTIONAL : UNIDIRECTIONAL;
         service.createDependency(NetworkId.of(tServiceId),
                                  NetworkId.of(pServiceId),
-                                 type);
+                                 type,
+                                 bandwidth);
         return Response.status(Response.Status.OK).build();
     }
 

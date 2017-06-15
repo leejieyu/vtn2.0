@@ -47,9 +47,10 @@ public final class ServiceNetworkCodecTest {
     private static final String ID = "id";
     private static final String TYPE = "type";
     private static final String PROVIDER_NETWORKS = "providerNetworks";
+    private static int bandwidth = 10;
 
     private final ProviderNetwork providerA =
-            ProviderNetwork.of(NetworkId.of("A"), BIDIRECTIONAL);
+            ProviderNetwork.of(NetworkId.of("A"), BIDIRECTIONAL, bandwidth);
 
     private final ServiceNetwork networkB = new ServiceNetwork(
             NetworkId.of("A"),

@@ -29,10 +29,12 @@ public final class ProviderNetwork {
 
     private final NetworkId id;
     private final Type type;
+    private int bandwidth;
 
-    private ProviderNetwork(NetworkId id, Type type) {
+    private ProviderNetwork(NetworkId id, Type type, int bandwidth) {
         this.id = id;
         this.type = type;
+        this.bandwidth = bandwidth;
     }
 
     /**
@@ -60,10 +62,19 @@ public final class ProviderNetwork {
      * @param type direct access type
      * @return provider network
      */
-    public static ProviderNetwork of(NetworkId id, Type type) {
+    public static ProviderNetwork of(NetworkId id, Type type, int bandwidth) {
         checkNotNull(id);
         checkNotNull(type);
-        return new ProviderNetwork(id, type);
+        return new ProviderNetwork(id, type, bandwidth);
+    }
+
+    /**
+     * return bandwidth.
+     *
+     * @return bandwidth
+     */
+    public int bandwidth() {
+        return bandwidth;
     }
 
     @Override
@@ -92,6 +103,7 @@ public final class ProviderNetwork {
         return MoreObjects.toStringHelper(getClass())
                 .add("id", id)
                 .add("type", type)
+                .add("bandwidth", bandwidth)
                 .toString();
     }
 }

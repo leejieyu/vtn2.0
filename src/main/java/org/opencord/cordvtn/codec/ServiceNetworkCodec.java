@@ -45,6 +45,7 @@ public final class ServiceNetworkCodec extends JsonCodec<ServiceNetwork> {
     private static final String TYPE = "type";
     private static final String PROVIDER_NETWORKS = "providerNetworks";
     private static final String BIDIRECT = "bidirectional";
+    private static final String BANDWIDTH = "bandwidth";
 
     private static final String ERR_JSON = "Invalid ServiceNetwork received";
     private static final String ERR_ID = ": network ID cannot be null";
@@ -60,7 +61,8 @@ public final class ServiceNetworkCodec extends JsonCodec<ServiceNetwork> {
         snet.providers().forEach(provider -> {
             ObjectNode providerJson = context.mapper().createObjectNode()
                     .put(ID, provider.id().id())
-                    .put(BIDIRECT, provider.type() == BIDIRECTIONAL ? TRUE : FALSE);
+                    .put(BIDIRECT, provider.type() == BIDIRECTIONAL ? TRUE : FALSE)
+                    .put(BANDWIDTH, provider.bandwidth());
             providers.add(providerJson);
         });
 
@@ -86,7 +88,8 @@ public final class ServiceNetworkCodec extends JsonCodec<ServiceNetwork> {
                 NetworkId providerId = NetworkId.of(provider.get(ID).asText());
                 Dependency.Type type = provider.get(BIDIRECT).asBoolean() ?
                         BIDIRECTIONAL : UNIDIRECTIONAL;
-                providers.add(ProviderNetwork.of(providerId, type));
+                int bandwidth = provider.get(BANDWIDTH).asInt();
+                providers.add(ProviderNetwork.of(providerId, type, bandwidth));
             });
         }
         return new ServiceNetwork(netId, netType, providers);

@@ -5,7 +5,8 @@
     "providerNetworks": [
       {
         "id": "A",
-        "bidirectional": true
+        "bidirectional": true,
+        "bandwidth": 10
       }
     ]
   }

@@ -29,8 +29,9 @@ public interface DependencyService {
      * @param subscriber subscriber network id
      * @param provider   provider network id
      * @param type       bidirectional access type
+     * @param bandwidth  bandwidth
      */
-    void createDependency(NetworkId subscriber, NetworkId provider, Type type);
+    void createDependency(NetworkId subscriber, NetworkId provider, Type type, int bandwidth);
 
     /**
      * Removes all dependencies from a given tenant service.

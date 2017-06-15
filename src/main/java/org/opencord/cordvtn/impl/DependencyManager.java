@@ -134,6 +134,9 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
     protected CordVtnAdminService vtnService;
 
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected ServiceChains serviceChains;
+
     private final VtnNetworkListener vtnNetListener = new InternalVtnNetListener();
     private final MapEventListener<NetworkId, Set<Dependency>> dependencyListener =
             new DependencyMapListener();
@@ -166,7 +169,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     }
 
     @Override
-    public void createDependency(NetworkId subNetId, NetworkId proNetId, Type type) {
+    public void createDependency(NetworkId subNetId, NetworkId proNetId, Type type, int bandwidth) {
         // FIXME this is not safe
         VtnNetwork existing = vtnService.vtnNetwork(subNetId);
         if (existing == null) {
@@ -175,7 +178,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         }
         vtnService.createServiceNetwork(existing);
         VtnNetwork updated = VtnNetwork.builder(existing)
-                .addProvider(proNetId, type)
+                .addProvider(proNetId, type, bandwidth)
                 .build();
         vtnService.updateServiceNetwork(updated);
     }
@@ -240,6 +243,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         populateDependencyRules(dependency.subscriber(), dependency.provider(),
                                 dependency.type(), true);
         log.info(String.format(MSG_CREATE, dependency));
+        serviceChains.tcHelper();
     }
 
     private void dependencyRemoved(Dependency dependency) {

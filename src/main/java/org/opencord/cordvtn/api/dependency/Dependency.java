@@ -16,6 +16,7 @@
 package org.opencord.cordvtn.api.dependency;
 
 import com.google.common.base.MoreObjects;
+//import org.omg.CORBA.OBJECT_NOT_EXIST;
 import org.opencord.cordvtn.api.net.VtnNetwork;
 
 import java.util.Objects;
@@ -35,11 +36,13 @@ public final class Dependency {
     private final VtnNetwork subscriber;
     private final VtnNetwork provider;
     private final Type type;
+    private int bandwidth;
 
-    private Dependency(VtnNetwork subscriber, VtnNetwork provider, Type type) {
+    private Dependency(VtnNetwork subscriber, VtnNetwork provider, Type type, int bandwidth) {
         this.subscriber = subscriber;
         this.provider = provider;
         this.type = type;
+        this.bandwidth = bandwidth;
     }
 
     /**
@@ -67,6 +70,15 @@ public final class Dependency {
      */
     public Type type() {
         return type;
+    }
+
+    /**
+     * Return bandwidth of service chain.
+     *
+     * @return bandwidth
+     */
+    public int bandwidth() {
+        return bandwidth;
     }
 
     @Override
@@ -97,6 +109,7 @@ public final class Dependency {
                 .add("subscriber", subscriber.id())
                 .add("provider", provider.id())
                 .add("type", type)
+                .add("bandwidth", bandwidth)
                 .toString();
     }
 
@@ -116,6 +129,7 @@ public final class Dependency {
         private VtnNetwork subscriber;
         private VtnNetwork provider;
         private Type type;
+        private int bandwidth;
 
         private Builder() {
         }
@@ -130,7 +144,7 @@ public final class Dependency {
             checkNotNull(provider);
             checkNotNull(type);
 
-            return new Dependency(subscriber, provider, type);
+            return new Dependency(subscriber, provider, type, bandwidth);
         }
 
         /**
@@ -163,6 +177,17 @@ public final class Dependency {
          */
         public Builder type(Type type) {
             this.type = type;
+            return this;
+        }
+
+        /**
+         * Returns dependency with the given bandwidth.
+         *
+         * @param bandwidth bandwidth
+         * @return dependency builder
+         */
+        public Builder bandwidth(int bandwidth) {
+            this.bandwidth = bandwidth;
             return this;
         }
     }
