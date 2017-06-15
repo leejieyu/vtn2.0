@@ -28,10 +28,15 @@ import org.apache.felix.scr.annotations.Service;
 import org.onlab.packet.Ethernet;
 import org.onlab.packet.Ip4Address;
 import org.onlab.packet.Ip4Prefix;
+import org.onlab.packet.IpAddress;
 import org.onlab.util.KryoNamespace;
 import org.onosproject.cluster.ClusterService;
 import org.onosproject.cluster.LeadershipService;
 import org.onosproject.cluster.NodeId;
+import org.onosproject.net.Device;
+import org.onosproject.net.Port;
+import org.onosproject.net.device.DeviceService;
+import org.onosproject.net.host.HostService;
 import org.onosproject.store.serializers.KryoNamespaces;
 import org.onosproject.store.service.ConsistentMap;
 import org.onosproject.store.service.MapEvent;
@@ -40,6 +45,9 @@ import org.onosproject.store.service.Serializer;
 import org.onosproject.store.service.StorageService;
 import org.onosproject.store.service.Versioned;
 import org.opencord.cordvtn.api.core.CordVtnAdminService;
+import org.opencord.cordvtn.api.core.CordVtnService;
+import org.opencord.cordvtn.api.core.CordVtnStore;
+import org.opencord.cordvtn.api.net.ServiceNetworkService;
 import org.opencord.cordvtn.api.node.CordVtnNode;
 import org.opencord.cordvtn.api.dependency.Dependency;
 import org.opencord.cordvtn.api.dependency.Dependency.Type;
@@ -75,12 +83,14 @@ import org.opencord.cordvtn.impl.handler.AbstractInstanceHandler;
 import org.slf4j.Logger;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.onosproject.net.AnnotationKeys.PORT_NAME;
 import static org.opencord.cordvtn.api.dependency.Dependency.Type.BIDIRECTIONAL;
 import static org.opencord.cordvtn.api.net.ServiceNetwork.ServiceNetworkType.ACCESS_AGENT;
 import static org.opencord.cordvtn.impl.CordVtnPipeline.*;
@@ -101,6 +111,9 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     private static final String MSG_REMOVE = "Removed dependency %s";
     private static final String ADDED = "Added ";
     private static final String REMOVED = "Removed ";
+    private static final String ADD_QOS = "ssh ubuntu@%d;sudo tc qdisc add dev %s root handle 1: default 1;" +
+            "sudo tc class add dev %s parent 1: classid 1:1 htb rate %dmbit";
+    private static  final  String DEL_QOS = "ssh ubuntu@%d;sudo tc qdisc del dev %s root";
 
     private static final KryoNamespace SERIALIZER_DEPENDENCY = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
@@ -135,7 +148,21 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     protected CordVtnAdminService vtnService;
 
     @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
-    protected ServiceChains serviceChains;
+    protected ServiceNetworkService serviceNetworkService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CordVtnService cordVtnService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected DeviceService deviceService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected HostService hostService;
+
+    @Reference(cardinality = ReferenceCardinality.MANDATORY_UNARY)
+    protected CordVtnStore store;
+
+
 
     private final VtnNetworkListener vtnNetListener = new InternalVtnNetListener();
     private final MapEventListener<NetworkId, Set<Dependency>> dependencyListener =
@@ -143,6 +170,9 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
 
     private ConsistentMap<NetworkId, Set<Dependency>> dependencyStore;
     private NodeId localNodeId;
+
+    private Map<PortNumber, String> numberNameMap = new HashMap<>();
+
 
     @Activate
     protected void activate() {
@@ -171,6 +201,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     @Override
     public void createDependency(NetworkId subNetId, NetworkId proNetId, Type type, int bandwidth) {
         // FIXME this is not safe
+        log.info("create Dependency!");
         VtnNetwork existing = vtnService.vtnNetwork(subNetId);
         if (existing == null) {
             log.warn("Failed to create dependency between {} and {}", subNetId, proNetId);
@@ -243,7 +274,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         populateDependencyRules(dependency.subscriber(), dependency.provider(),
                                 dependency.type(), true);
         log.info(String.format(MSG_CREATE, dependency));
-        serviceChains.tcHelper();
+        qosCreated(dependency, true);
     }
 
     private void dependencyRemoved(Dependency dependency) {
@@ -253,6 +284,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
             removeProviderGroup(dependency.provider().id());
         }
         log.info(String.format(MSG_REMOVE, dependency));
+        qosCreated(dependency, false);
     }
 
     private void updateProviderInstances(VtnNetwork provider) {
@@ -618,5 +650,60 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
             newDeps.stream().filter(newDep -> !oldDeps.contains(newDep))
                     .forEach(DependencyManager.this::dependencyCreated);
         }
+    }
+
+    /**
+     * 假设一个serviceNetwork, 只有一个providerNetwork.
+     * @param dependency
+     */
+
+    private void qosCreated(Dependency dependency, boolean qos) {
+        log.info("qos");
+        buildNumberNameMap();
+        int bandwidth = dependency.bandwidth();
+        if (dependency.bandwidth() != 0) {
+            tc(dependency.subscriber().id(), bandwidth, qos);
+            tc(dependency.provider().id(), bandwidth, qos);
+        }
+    }
+
+
+    private void tc(NetworkId networkId, int bandwidth, boolean qos) {
+        getInstances(networkId).forEach(instance-> {
+            IpAddress ipAddress = nodeManager.dataIp(instance.deviceId());
+            String portName = numberNameMap.get(instance.portNumber());
+            if (qos) {
+                log.info("build queue");
+                log.info(ADD_QOS, ipAddress, portName, portName, bandwidth);
+            } else {
+                log.info("delete queue");
+                log.info(DEL_QOS, ipAddress, portName);
+            }
+        });
+    }
+
+    /**
+     * Returns port name.
+     *
+     * @param port port
+     * @return port name
+     */
+    private String portName(Port port) {
+        return port.annotations().value(PORT_NAME);
+    }
+
+
+    /**
+     * 建立 portNumber 和 portName 的 映射表.
+     */
+    public void buildNumberNameMap() {
+        numberNameMap.clear();
+        for (Device device : deviceService.getDevices()) {
+            for (Port port : deviceService.getPorts(device.id())) {
+                numberNameMap.put(port.number(), portName(port));
+                log.info(port.number() + ":" + portName(port));
+            }
+        }
+
     }
 }
