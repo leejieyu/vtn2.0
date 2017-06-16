@@ -69,6 +69,8 @@ import static org.slf4j.LoggerFactory.getLogger;
 
 /**
  * Provides implementation of administering and interfacing VTN networks.
+ * tc 可以提供完整信息给 聊天程序.
+ * 由于建立 dependency 会导致 openstack 错误,所以还没有建立 serviceChain 表.
  */
 @Component(immediate = true)
 @Service
