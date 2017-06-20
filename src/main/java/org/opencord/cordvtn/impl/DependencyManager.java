@@ -118,7 +118,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
             "sudo tc qdisc add dev %s root handle 1: default 1;" +
             "sudo tc class add dev %s parent 1: classid 1:1 htb rate %dmbit";
 
-    private static  final  String DEL_QOS = "ssh ubuntu@%d;sudo tc qdisc del dev %s root";
+    private static  final  String DEL_QOS = "ssh ubuntu@%d!sudo tc qdisc del dev %s root";
 
     private static final KryoNamespace SERIALIZER_DEPENDENCY = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
