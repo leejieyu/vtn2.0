@@ -82,6 +82,9 @@ import org.opencord.cordvtn.api.net.VtnNetworkListener;
 import org.opencord.cordvtn.impl.handler.AbstractInstanceHandler;
 import org.slf4j.Logger;
 
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.net.Socket;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -111,8 +114,10 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     private static final String MSG_REMOVE = "Removed dependency %s";
     private static final String ADDED = "Added ";
     private static final String REMOVED = "Removed ";
-    private static final String ADD_QOS = "ssh ubuntu@%d;sudo tc qdisc add dev %s root handle 1: default 1;" +
+    private static final String ADD_QOS = "ssh ubuntu@%s!sudo tc qdisc del dev %s root;" +
+            "sudo tc qdisc add dev %s root handle 1: default 1;" +
             "sudo tc class add dev %s parent 1: classid 1:1 htb rate %dmbit";
+
     private static  final  String DEL_QOS = "ssh ubuntu@%d;sudo tc qdisc del dev %s root";
 
     private static final KryoNamespace SERIALIZER_DEPENDENCY = KryoNamespace.newBuilder()
@@ -167,6 +172,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     private final VtnNetworkListener vtnNetListener = new InternalVtnNetListener();
     private final MapEventListener<NetworkId, Set<Dependency>> dependencyListener =
             new DependencyMapListener();
+    private MessageClient messageClient = new MessageClient();
 
     private ConsistentMap<NetworkId, Set<Dependency>> dependencyStore;
     private NodeId localNodeId;
@@ -599,6 +605,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
                             .subscriber(subscriber)
                             .provider(vtnService.vtnNetwork(provider.id()))
                             .type(provider.type())
+                            .bandwidth(provider.bandwidth())
                             .build())
                     .collect(Collectors.toSet());
             dependencyStore.put(subscriber.id(), dependencies);
@@ -661,6 +668,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         log.info("qos");
         buildNumberNameMap();
         int bandwidth = dependency.bandwidth();
+        log.info("bandwidth : " + bandwidth);
         if (dependency.bandwidth() != 0) {
             tc(dependency.subscriber().id(), bandwidth, qos);
             tc(dependency.provider().id(), bandwidth, qos);
@@ -669,15 +677,19 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
 
 
     private void tc(NetworkId networkId, int bandwidth, boolean qos) {
+        log.info("tc");
         getInstances(networkId).forEach(instance-> {
             IpAddress ipAddress = nodeManager.dataIp(instance.deviceId());
+            String ip = ipAddress.getIp4Address().toString();
             String portName = numberNameMap.get(instance.portNumber());
             if (qos) {
                 log.info("build queue");
-                log.info(ADD_QOS, ipAddress, portName, portName, bandwidth);
+                String s = String.format(ADD_QOS, ip, portName, portName, portName, bandwidth);
+                messageClient.sendMessage(s);
+
             } else {
                 log.info("delete queue");
-                log.info(DEL_QOS, ipAddress, portName);
+                log.info(String.format(DEL_QOS, ip, portName));
             }
         });
     }
@@ -705,5 +717,28 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
             }
         }
 
+    }
+
+    private class MessageClient {
+        private final String ovsIp = "10.1.0.1";
+        private final int ovsPort = 6668;
+        private Socket socket;
+        private PrintWriter printWriter;
+        private OutputStream outputStream;
+
+        private void sendMessage(String string) {
+            try {
+                socket = new Socket(ovsIp, ovsPort);
+                outputStream = socket.getOutputStream();
+                printWriter = new PrintWriter(outputStream);
+                printWriter.print(string);
+                printWriter.flush();
+                socket.shutdownOutput();
+                outputStream.close();
+                socket.close();
+            } catch (Exception e) {
+                log.warn("SocketSendMessageError" + e);
+            }
+        }
     }
 }
