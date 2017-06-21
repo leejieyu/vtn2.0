@@ -114,11 +114,11 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     private static final String MSG_REMOVE = "Removed dependency %s";
     private static final String ADDED = "Added ";
     private static final String REMOVED = "Removed ";
-    private static final String ADD_QOS = "ssh ubuntu@%s!sudo tc qdisc del dev %s root;" +
+    private static final String ADD_QOS = "ssh ubuntu@%s !" +
             "sudo tc qdisc add dev %s root handle 1: htb default 1;" +
             "sudo tc class add dev %s parent 1: classid 1:1 htb rate %dmbit";
 
-    private static  final  String DEL_QOS = "ssh ubuntu@%d!sudo tc qdisc del dev %s root";
+    private static  final  String DEL_QOS = "ssh ubuntu@%s ! sudo tc qdisc del dev %s root";
 
     private static final KryoNamespace SERIALIZER_DEPENDENCY = KryoNamespace.newBuilder()
             .register(KryoNamespaces.API)
@@ -692,12 +692,13 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
             String portName = numberNameMap.get(instance.portNumber());
             if (qos) {
                 log.info("build queue");
-                String s = String.format(ADD_QOS, ip, portName, portName, portName, bandwidth);
+                String s = String.format(ADD_QOS, ip, portName, portName, bandwidth);
+                log.info(s);
                 messageClient.sendMessage(s);
 
             } else {
                 log.info("delete queue");
-                log.info(String.format(DEL_QOS, ip, portName));
+                messageClient.sendMessage(String.format(DEL_QOS, ip, portName));
             }
         });
     }
