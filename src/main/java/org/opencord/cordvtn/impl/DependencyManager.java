@@ -115,7 +115,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
     private static final String ADDED = "Added ";
     private static final String REMOVED = "Removed ";
     private static final String ADD_QOS = "ssh ubuntu@%s!sudo tc qdisc del dev %s root;" +
-            "sudo tc qdisc add dev %s root handle 1: default 1;" +
+            "sudo tc qdisc add dev %s root handle 1: htb default 1;" +
             "sudo tc class add dev %s parent 1: classid 1:1 htb rate %dmbit";
 
     private static  final  String DEL_QOS = "ssh ubuntu@%d!sudo tc qdisc del dev %s root";
@@ -680,7 +680,15 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         log.info("tc");
         getInstances(networkId).forEach(instance-> {
             IpAddress ipAddress = nodeManager.dataIp(instance.deviceId());
-            String ip = ipAddress.getIp4Address().toString();
+            IpAddress hostmgmtIp = null;
+
+            for (CordVtnNode node :  nodeManager.getNodes()) {
+                if (node.dataIp().ip().equals(ipAddress)) {
+                    hostmgmtIp = node.hostMgmtIp().ip();
+                }
+            }
+
+            String ip = hostmgmtIp.getIp4Address().toString();
             String portName = numberNameMap.get(instance.portNumber());
             if (qos) {
                 log.info("build queue");
@@ -713,7 +721,7 @@ public class DependencyManager extends AbstractInstanceHandler implements Depend
         for (Device device : deviceService.getDevices()) {
             for (Port port : deviceService.getPorts(device.id())) {
                 numberNameMap.put(port.number(), portName(port));
-                log.info(port.number() + ":" + portName(port));
+                // log.info(port.number() + ":" + portName(port));
             }
         }
 
